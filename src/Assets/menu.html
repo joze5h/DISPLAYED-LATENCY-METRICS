@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DISPLAYED-LATENCY-METRICS</title>
+<style>
+
+:root {
+  color-scheme: dark;
+  --bg: #070b11;
+  --bg-deep: #04070b;
+  --line: #23364e;
+  --line-strong: #345273;
+  --text: #d9e6f5;
+  --muted: #8193a9;
+  --dim: #56697f;
+  --accent: #4c9cff;
+  --accent-bright: #70b6ff;
+  --accent-soft: rgba(76, 156, 255, .12);
+  --good: #54e6a2;
+  --warn: #ffbf69;
+  --danger: #ff676f;
+  --shadow: 0 18px 54px rgba(0, 0, 0, .28);
+  --shell-max: 1680px;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+html { background: var(--bg-deep); scrollbar-color: #36506c #080d14; }
+body {
+  margin: 0;
+  min-width: 760px;
+  background:
+    linear-gradient(rgba(76,156,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(76,156,255,.025) 1px, transparent 1px),
+    radial-gradient(circle at 65% -20%, rgba(56,130,220,.12), transparent 38%),
+    var(--bg);
+  background-size: 32px 32px, 32px 32px, auto, auto;
+  color: var(--text);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 14px;
+  line-height: 1.55;
+}
+button, input, select { font: inherit; }
+button, select, input[type="number"] {
+  border-radius: 0;
+  outline: none;
+}
+button:focus-visible, select:focus-visible, input:focus-visible {
+  border-color: var(--accent-bright) !important;
+  box-shadow: 0 0 0 1px var(--accent-bright) inset;
+}
+button { cursor: pointer; }
+button:disabled { cursor: default; opacity: .42; }
+.app-shell {
+  width: min(var(--shell-max), calc(100% - 32px));
+  margin: 0 auto;
+  padding: 24px 0 112px;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity .18s ease-out, transform .18s ease-out;
+}
+body.content-ready .app-shell { opacity: 1; transform: translateY(0); }
+.switch {
+  position: relative;
+  width: 66px;
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  background: #070c13;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color .18s, background .18s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  background: var(--dim);
+  transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.switch:checked { background: var(--accent-soft); border-color: var(--accent); }
+.switch:checked::after { transform: translateX(36px); background: var(--accent-bright); box-shadow: 0 0 13px rgba(76,156,255,.62); }
+.mode-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 0;
+  border: 1px solid var(--line);
+  background: rgba(5,9,14,.8);
+}
+.mode-button {
+  min-height: 64px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  padding: 13px 16px;
+  text-align: left;
+  color: var(--muted);
+  background: transparent;
+  transition: background .15s, color .15s;
+}
+.mode-button:last-child { border-right: 0; }
+.mode-button:hover { background: rgba(76,156,255,.055); color: var(--text); }
+.mode-button.active { color: var(--text); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.mode-button b { display: block; color: inherit; font-size: 12px; letter-spacing: .1em; }
+.mode-button span { display: block; margin-top: 5px; color: var(--dim); font-size: 11.5px; line-height: 1.5; }
+.status-line {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-height: 56px;
+  padding: 15px 17px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: rgba(11,18,27,.88);
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.status-line strong { flex: 0 0 auto; color: var(--accent-bright); letter-spacing: .08em; }
+.exclusive-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 13px 17px;
+  border: 1px solid #5c4d2b;
+  border-top: 0;
+  background: rgba(89, 64, 18, .15);
+  color: #c8b98d;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+.exclusive-note strong { flex: 0 0 auto; color: var(--warn); letter-spacing: .08em; }
+.main-grid {
+  display: grid;
+  grid-template-columns: minmax(540px, 1.02fr) minmax(560px, .98fr);
+  gap: 24px;
+  margin-top: 24px;
+  align-items: start;
+}
+.stack { display: grid; gap: 24px; min-width: 0; }
+.panel { border: 1px solid var(--line); background: rgba(11,18,27,.94); box-shadow: var(--shadow); min-width: 0; }
+.panel-head {
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 19px 15px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(18,29,43,.86), rgba(13,21,31,.86));
+}
+.panel-title { min-width: 0; }
+.panel-title h2 { margin: 0; font-size: 13.5px; letter-spacing: .12em; text-transform: uppercase; }
+.panel-title p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.panel-tools { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.overlay-master {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-right: 6px;
+  padding: 5px 10px 5px 12px;
+  border: 1px solid var(--line-strong);
+  background: rgba(5, 10, 16, .72);
+  cursor: pointer;
+  user-select: none;
+}
+.overlay-master:hover { border-color: var(--accent); background: rgba(76,156,255,.07); }
+.overlay-master-copy { display: grid; min-width: 82px; line-height: 1.15; }
+.overlay-master-copy strong { color: var(--text); font-size: 10.5px; letter-spacing: .11em; }
+.overlay-master-copy small { margin-top: 4px; color: var(--muted); font-size: 9.5px; letter-spacing: .07em; }
+.overlay-master .switch { width: 54px; height: 26px; flex: 0 0 auto; }
+.overlay-master .switch::after { top: 3px; left: 3px; width: 18px; height: 18px; }
+.overlay-master .switch:checked::after { transform: translateX(28px); }
+.btn {
+  min-height: 36px;
+  border: 1px solid var(--line-strong);
+  padding: 8px 13px;
+  background: #0b131d;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.btn:hover { border-color: var(--accent); background: rgba(76,156,255,.09); }
+.btn.primary { border-color: var(--accent); background: var(--accent); color: #03101e; }
+.btn.primary:hover { background: var(--accent-bright); border-color: var(--accent-bright); }
+.btn.danger:hover { border-color: var(--danger); color: #ff9da2; background: rgba(255,103,111,.08); }
+.btn.icon { width: 32px; min-height: 32px; padding: 0; font-size: 15px; display: grid; place-items: center; }
+.metrics-list { padding: 0; max-height: 680px; overflow: auto; scrollbar-gutter: stable; }
+.metric-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto 116px;
+  align-items: center;
+  min-height: 60px;
+  border-bottom: 1px solid rgba(35,54,78,.75);
+  background: rgba(9,15,23,.86);
+  transition: background .14s, box-shadow .14s;
+}
+.metric-row:last-child { border-bottom: 0; }
+.metric-row:hover { background: rgba(19,31,46,.9); }
+.metric-row.dragging { opacity: .48; }
+.metric-row.drop-target { box-shadow: inset 0 2px 0 var(--accent); }
+.metric-toggle {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: #070c13;
+}
+.metric-toggle:checked { border-color: var(--accent); background: var(--accent); }
+.metric-toggle:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #05101b;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.metric-name { min-width: 0; padding: 14px 12px 14px 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13.5px; font-weight: 600; line-height: 1.4; }
+.group-tag {
+  min-width: 88px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+}
+.group-tag.cpu { border-color: #2e5c76; color: #79c9ed; }
+.group-tag.render { border-color: #665729; color: #e4c76b; }
+.group-tag.stutter { border-color: #7a3434; color: #ff8a80; }
+.group-tag.display { border-color: #24634b; color: #65e6aa; }
+.row-actions {
+  display: grid;
+  grid-template-columns: 36px 34px 34px;
+  align-items: center;
+  justify-content: end;
+  gap: 3px;
+  padding-right: 10px;
+}
+.row-actions .btn { width: 34px; min-height: 34px; padding: 0; border-color: transparent; color: var(--dim); background: transparent; }
+.row-actions .btn:hover { color: var(--accent-bright); border-color: var(--line-strong); }
+.drag-handle {
+  width: 36px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: var(--dim);
+  cursor: grab;
+  user-select: none;
+  font-size: 0;
+}
+.drag-handle::before {
+  content: "";
+  width: 12px;
+  height: 18px;
+  background-image: radial-gradient(circle, currentColor 1.55px, transparent 1.7px);
+  background-size: 6px 6px;
+  background-position: 0 0;
+}
+.drag-handle:active { cursor: grabbing; color: var(--accent-bright); }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.field {
+  min-width: 0;
+  padding: 17px 18px 18px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.field:nth-child(2n) { border-right: 0; }
+.field label { display: block; margin-bottom: 9px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.control {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--line-strong);
+  padding: 0 15px;
+  background: #080e16;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+select.control {
+  cursor: pointer;
+  appearance: none;
+  padding-right: 48px;
+  background-color: #080e16;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #89a6c8 50%),
+    linear-gradient(135deg, #89a6c8 50%, transparent 50%);
+  background-position: calc(100% - 23px) 18px, calc(100% - 17px) 18px;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+select.control::-ms-expand { display: none; }
+.range-line { display: grid; grid-template-columns: minmax(0, 1fr) 70px; gap: 9px; align-items: center; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.options-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; }
+.option {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 64px;
+  padding: 15px 18px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.option:last-child { border-right: 0; }
+.option:hover { background: rgba(76,156,255,.045); color: var(--text); }
+.option input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.hotkey-wrap { padding: 18px; }
+.hotkey-display {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+}
+.hotkey-value {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  background: #080e16;
+  color: var(--accent-bright);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.hotkey-value.capturing { border-color: var(--warn); color: var(--warn); animation: pulse-border 1s infinite; }
+@keyframes pulse-border { 50% { box-shadow: 0 0 0 1px rgba(255,191,105,.65) inset; } }
+.hotkey-help { margin: 13px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
+.preview-frame {
+  min-height: 300px;
+  max-height: 480px;
+  overflow: auto;
+  padding: 24px;
+  background:
+    linear-gradient(45deg, rgba(255,255,255,.025) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.025) 75%),
+    linear-gradient(45deg, rgba(255,255,255,.025) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.025) 75%),
+    #05090f;
+  background-position: 0 0, 10px 10px;
+  background-size: 20px 20px;
+  border-top: 1px solid rgba(52,82,115,.35);
+  scrollbar-gutter: stable;
+}
+.preview-surface {
+  --preview-bg: rgb(14, 19, 26);
+  --preview-border: rgb(53, 65, 77);
+  --preview-text: rgb(229, 237, 243);
+  --preview-accent: rgb(94, 210, 224);
+  --preview-muted: rgb(132, 147, 160);
+  width: max-content;
+  min-width: min(100%, 520px);
+  max-width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid var(--preview-border);
+  background: var(--preview-bg);
+  color: var(--preview-text);
+  white-space: pre;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.45;
+  transform-origin: top left;
+  transition: background-color .18s, border-color .18s, color .18s, opacity .18s, padding .18s;
+}
+.preview-line { min-height: 1.45em; color: var(--preview-text); }
+.preview-line.title { color: var(--preview-accent); }
+.preview-line.status, .preview-line.separator { color: var(--preview-muted); }
+.native-only.is-hidden { display: none; }
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  border-top: 1px solid var(--line-strong);
+  background: rgba(5,9,14,.96);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 -14px 30px rgba(0,0,0,.28);
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity .18s ease-out, transform .18s ease-out;
+}
+body.content-ready .footer { opacity: 1; transform: translateY(0); }
+.footer-inner {
+  width: min(var(--shell-max), calc(100% - 32px));
+  min-height: 76px;
+  margin: 0 auto;
+  padding: 14px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+}
+.dirty-state { color: #a8bbd0; font-size: 12.5px; line-height: 1.55; letter-spacing: .01em; }
+.dirty-state strong { color: var(--good); font-size: 13px; letter-spacing: .045em; }
+.dirty-state.changed strong { color: var(--warn); }
+.footer-actions { display: flex; align-items: center; gap: 10px; }
+.footer-actions .btn { min-width: 150px; min-height: 44px; }
+.toast {
+  display: none;
+  align-items: center;
+  max-width: 460px;
+  min-height: 44px;
+  padding: 10px 15px;
+  border: 1px solid var(--good);
+  background: #07140f;
+  color: #98f5c8;
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.toast.show { display: flex; }
+.toast.error { border-color: var(--danger); background: #18090b; color: #ffabb0; }
+@media (max-width: 1180px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .metrics-list { max-height: 510px; }
+}
+@media (max-width: 820px) {
+  body { min-width: 640px; }
+  .app-shell { width: calc(100% - 28px); }
+  .footer-inner { width: calc(100% - 28px); }
+}
+</style>
+</head>
+<body>
+<main class="app-shell">
+  <div class="mode-strip" role="group" aria-label="Режим вывода">
+    <button class="mode-button" data-mode="0"><b>ПОЛНОЭКРАННЫЙ В ОКНЕ</b><span>Собственный оверлей метрик поверх игры</span></button>
+    <button class="mode-button" data-mode="1"><b>НА ВЕСЬ ЭКРАН</b><span>Вывод метрик поверх игры с помощью RTSS</span></button>
+  </div>
+  <div id="modeInfo" class="status-line"><strong>РЕЖИМ ВЫВОДА</strong><span>Загрузка...</span></div>
+  <div class="exclusive-note"><strong>ВАЖНО</strong><span>В режиме 'На весь экран' игра получает эксклюзивный доступ к дисплею, поэтому DLM не может гарантированно показать собственный оврелей поверх игры (риск получить пи.ды от античитов, ведь софт без подписи). Поэтому используется RTSS в помощь вывода метрик.</span></div>
+
+  <section class="main-grid">
+    <div class="stack">
+      <article class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><h2>МЕТРИКИ ОВЕРЛЕЯ</h2><p>Включение и порядок метрик оверлея</p></div>
+          <div class="panel-tools">
+            <label class="overlay-master" for="overlayEnabled" title="Показывать или скрывать оверлей">
+              <span class="overlay-master-copy"><strong>ОВЕРЛЕЙ</strong><small id="overlayStatusText">ВКЛЮЧЕН</small></span>
+              <input id="overlayEnabled" class="switch" type="checkbox" aria-label="Показывать оверлей">
+            </label>
+            <button id="selectAll" class="btn">ВСЕ</button>
+            <button id="selectNone" class="btn">НИЧЕГО</button>
+          </div>
+        </div>
+        <div id="metricsList" class="metrics-list"></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><h2>ВКЛ / ОТКЛ ОТОБРАЖЕНИЯ ОВЕРЛЕЯ</h2><p>Переключение видимости оверлея без открытия меню или сворачивания игры</p></div>
+        </div>
+        <div class="hotkey-wrap">
+          <div class="hotkey-display">
+            <div id="hotkeyValue" class="hotkey-value">НЕ НАЗНАЧЕНА</div>
+            <button id="captureHotkey" class="btn">НАЗНАЧИТЬ</button>
+            <button id="clearHotkey" class="btn danger">ОЧИСТИТЬ</button>
+          </div>
+          <p class="hotkey-help">Допустимо: F1–F24 без модификаторов либо любая немодифицирующая клавиша с Ctrl / Alt / Shift / Win. Esc отменяет захват.</p>
+        </div>
+      </article>
+    </div>
+
+    <div class="stack">
+      <article class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><h2>ОТОБРАЖЕНИЕ</h2><p>Визуальная настройка оверлея</p></div>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label for="layoutMode">КОМПОНОВКА</label><select id="layoutMode" class="control"><option value="0">СТАНДАРТНЫЙ СПИСОК</option><option value="1">КОМПАКТНЫЙ СПИСОК</option><option value="2">ДВЕ КОЛОНКИ</option><option value="3">ОДНА СТРОКА</option></select></div>
+          <div class="field native-only"><label for="anchor">ПРИВЯЗКА</label><select id="anchor" class="control"><option value="0">СВЕРХУ СЛЕВА</option><option value="1">СВЕРХУ ПО ЦЕНТРУ</option><option value="2">СВЕРХУ СПРАВА</option><option value="3">ПО ЦЕНТРУ СЛЕВА</option><option value="4">ПО ЦЕНТРУ</option><option value="5">ПО ЦЕНТРУ СПРАВА</option><option value="6">СНИЗУ СЛЕВА</option><option value="7">СНИЗУ ПО ЦЕНТРУ</option><option value="8">СНИЗУ СПРАВА</option></select></div>
+          <div class="field native-only"><label for="colorTheme">ЦВЕТОВАЯ ТЕМА</label><select id="colorTheme" class="control"><option value="0">ТЕМНАЯ</option><option value="1">ЯНТАРНАЯ</option></select></div>
+          <div class="field"><label for="refresh">ЧАСТОТА ОБНОВЛЕНИЯ МЕТРИК</label><select id="refresh" class="control"><option value="250">250 мс</option><option value="500">500 мс</option><option value="1000">1000 мс</option><option value="2000">2000 мс</option></select></div>
+          <div class="field native-only"><label for="offsetX">СДВИГ ПО ОСИ X</label><input id="offsetX" class="control" type="number" min="-2000" max="2000" step="1"></div>
+          <div class="field native-only"><label for="offsetY">СДВИГ ПО ОСИ Y</label><input id="offsetY" class="control" type="number" min="-2000" max="2000" step="1"></div>
+          <div class="field"><label for="decimals">ЗНАКОВ ПОСЛЕ ЗАПЯТОЙ</label><select id="decimals" class="control"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
+          <div class="field native-only"><label for="fontSize">РАЗМЕР ШРИФТА, DIP</label><div class="range-line"><input id="fontSizeRange" type="range" min="10" max="32" step="1"><input id="fontSize" class="control" type="number" min="10" max="32"></div></div>
+          <div class="field native-only"><label for="opacity">НЕПРОЗРАЧНОСТЬ, %</label><div class="range-line"><input id="opacityRange" type="range" min="35" max="100" step="1"><input id="opacity" class="control" type="number" min="35" max="100"></div></div>
+          <div class="field native-only"><label for="padding">ВНУТРЕННИЙ ОТСТУП, DIP</label><div class="range-line"><input id="paddingRange" type="range" min="4" max="32" step="1"><input id="padding" class="control" type="number" min="4" max="32"></div></div>
+        </div>
+        <div class="options-grid">
+          <label class="option"><input id="showTitle" type="checkbox"><span>ЗАГОЛОВОК</span></label>
+          <label class="option native-only"><input id="showSeparators" type="checkbox"><span>РАЗДЕЛИТЕЛИ</span></label>
+          <label class="option"><input id="showUnits" type="checkbox"><span>ЕДИНИЦЫ ИЗМЕРЕНИЯ</span></label>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><h2>ПРЕДПРОСМОТР ОВЕРЛЕЯ</h2></div>
+        </div>
+        <div class="preview-frame"><div id="preview" class="preview-surface" aria-live="polite"></div></div>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div id="dirtyState" class="dirty-state"><strong>СИНХРОНИЗИРОВАНО</strong>: изменения отсутствуют</div>
+      <div class="footer-actions"><div id="toast" class="toast" role="status" aria-live="polite"></div><button id="defaults" class="btn">СБРОСИТЬ</button><button id="apply" class="btn primary">ПРИМЕНИТЬ</button></div>
+  </div>
+</footer>
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const bridge = window.chrome && window.chrome.webview ? window.chrome.webview : null;
+  const state = {
+    draft: null,
+    appliedSignature: "",
+    metrics: [],
+    capturingHotkey: false,
+    previewTimer: 0,
+    toastTimer: 0,
+    dragIndex: -1
+  };
+
+  const previewPalettes = [
+    { name: "ТЕМНАЯ", bg: "rgb(14, 19, 26)", border: "rgb(53, 65, 77)", text: "rgb(229, 237, 243)", accent: "rgb(94, 210, 224)", muted: "rgb(132, 147, 160)" },
+    { name: "ЯНТАРНАЯ", bg: "rgb(34, 26, 13)", border: "rgb(101, 75, 27)", text: "rgb(244, 235, 213)", accent: "rgb(255, 190, 65)", muted: "rgb(176, 153, 111)" }
+  ];
+
+  const clamp = (value, min, max, fallback = min) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+  };
+
+  const defaultDraft = () => ({
+    overlayEnabled: true,
+    outputMode: 0,
+    hotkey: { enabled: false, modifiers: 0, virtualKey: 0, display: "НЕ НАЗНАЧЕНА" },
+    enabledMetricIds: Array.from({ length: 20 }, (_, i) => i),
+    metricOrderIds: Array.from({ length: 20 }, (_, i) => i),
+    presentation: {
+      layoutMode: 0, anchor: 0, colorTheme: 0, offsetX: 0, offsetY: 0,
+      decimalPlaces: 3, fontSize: 14, opacityPercent: 100, padding: 12,
+      refreshIntervalMilliseconds: 1000, showTitle: true, showSeparators: true, showUnits: true
+    }
+  });
+
+  const clone = (value) => JSON.parse(JSON.stringify(value));
+  const signature = (draft) => JSON.stringify({
+    overlayEnabled: draft.overlayEnabled,
+    outputMode: draft.outputMode,
+    hotkey: { enabled: draft.hotkey.enabled, modifiers: draft.hotkey.modifiers, virtualKey: draft.hotkey.virtualKey },
+    enabledMetricIds: [...draft.enabledMetricIds].sort((a, b) => a - b),
+    metricOrderIds: draft.metricOrderIds,
+    presentation: draft.presentation
+  });
+
+  function post(action, payload = {}) {
+    if (bridge) bridge.postMessage({ action, ...payload });
+  }
+
+  function renderMetrics() {
+    const list = $("metricsList");
+    list.textContent = "";
+    const enabled = new Set(state.draft.enabledMetricIds);
+    state.draft.metricOrderIds.forEach((metricId, index) => {
+      const metric = state.metrics.find((item) => item.id === metricId);
+      if (!metric) return;
+
+      const row = document.createElement("div");
+      row.className = "metric-row";
+      row.draggable = true;
+      row.dataset.index = String(index);
+      const groupClass = ({ "PRESENT": "render", "ЦП": "cpu", "CPU": "cpu", "РЕНДЕР": "render", "RENDER": "render", "STUTTER": "stutter", "ОТОБРАЖЕНИЕ": "display", "DISPLAY": "display" })[metric.group] || "display";
+      row.innerHTML = `
+        <input class="metric-toggle" type="checkbox" aria-label="${escapeHtml(metric.name)}" ${enabled.has(metricId) ? "checked" : ""}>
+        <div class="metric-name" title="${escapeHtml(metric.name)}">${escapeHtml(metric.name)}</div>
+        <span class="group-tag ${groupClass}">${escapeHtml(metric.group)}</span>
+        <div class="row-actions"><span class="drag-handle" title="Перетащить" aria-label="Перетащить"></span><button class="btn icon up" title="Выше">↑</button><button class="btn icon down" title="Ниже">↓</button></div>`;
+
+      row.querySelector(".metric-toggle").addEventListener("change", (event) => {
+        const set = new Set(state.draft.enabledMetricIds);
+        event.target.checked ? set.add(metricId) : set.delete(metricId);
+        state.draft.enabledMetricIds = [...set];
+        onDraftChanged();
+      });
+      row.querySelector(".up").addEventListener("click", () => moveMetric(index, -1));
+      row.querySelector(".down").addEventListener("click", () => moveMetric(index, 1));
+      row.addEventListener("dblclick", (event) => {
+        if (event.target.closest("button") || event.target.matches("input")) return;
+        const toggle = row.querySelector(".metric-toggle");
+        toggle.checked = !toggle.checked;
+        toggle.dispatchEvent(new Event("change"));
+      });
+      row.addEventListener("dragstart", (event) => {
+        state.dragIndex = index;
+        row.classList.add("dragging");
+        event.dataTransfer.effectAllowed = "move";
+      });
+      row.addEventListener("dragend", () => {
+        state.dragIndex = -1;
+        document.querySelectorAll(".metric-row").forEach((item) => item.classList.remove("dragging", "drop-target"));
+      });
+      row.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        row.classList.add("drop-target");
+      });
+      row.addEventListener("dragleave", () => row.classList.remove("drop-target"));
+      row.addEventListener("drop", (event) => {
+        event.preventDefault();
+        row.classList.remove("drop-target");
+        reorderMetric(state.dragIndex, index);
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function moveMetric(index, delta) {
+    const next = index + delta;
+    if (next < 0 || next >= state.draft.metricOrderIds.length) return;
+    const order = state.draft.metricOrderIds;
+    [order[index], order[next]] = [order[next], order[index]];
+    renderMetrics();
+    onDraftChanged();
+  }
+
+  function reorderMetric(from, to) {
+    if (from < 0 || from === to || to < 0 || to >= state.draft.metricOrderIds.length) return;
+    const [item] = state.draft.metricOrderIds.splice(from, 1);
+    state.draft.metricOrderIds.splice(to, 0, item);
+    renderMetrics();
+    onDraftChanged();
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character]);
+  }
+
+  function syncControlsFromDraft() {
+    const d = state.draft;
+    $("overlayEnabled").checked = !!d.overlayEnabled;
+    $("overlayStatusText").textContent = d.overlayEnabled ? "ВКЛЮЧЕН" : "ВЫКЛЮЧЕН";
+    document.querySelectorAll(".mode-button").forEach((button) => button.classList.toggle("active", Number(button.dataset.mode) === d.outputMode));
+    $("layoutMode").value = String(d.presentation.layoutMode);
+    $("anchor").value = String(d.presentation.anchor);
+    $("colorTheme").value = String(d.presentation.colorTheme);
+    $("refresh").value = String(d.presentation.refreshIntervalMilliseconds);
+    $("offsetX").value = String(d.presentation.offsetX);
+    $("offsetY").value = String(d.presentation.offsetY);
+    $("decimals").value = String(d.presentation.decimalPlaces);
+    syncPair("fontSize", d.presentation.fontSize);
+    syncPair("opacity", d.presentation.opacityPercent);
+    syncPair("padding", d.presentation.padding);
+    $("showTitle").checked = !!d.presentation.showTitle;
+    $("showSeparators").checked = !!d.presentation.showSeparators;
+    $("showUnits").checked = !!d.presentation.showUnits;
+    $("hotkeyValue").textContent = d.hotkey.display || "НЕ НАЗНАЧЕНА";
+    applyPreviewAppearance();
+    updateOutputModeUi();
+    renderMetrics();
+    updateDirtyState();
+  }
+
+  function syncPair(name, value) {
+    $(name).value = String(value);
+    $(name + "Range").value = String(value);
+  }
+
+  function readControlsToDraft() {
+    const p = state.draft.presentation;
+    state.draft.overlayEnabled = $("overlayEnabled").checked;
+    p.layoutMode = clamp($("layoutMode").value, 0, 3, 0);
+    p.anchor = clamp($("anchor").value, 0, 8, 0);
+    p.colorTheme = clamp($("colorTheme").value, 0, 1, 0);
+    p.refreshIntervalMilliseconds = [250, 500, 1000, 2000].includes(Number($("refresh").value)) ? Number($("refresh").value) : 1000;
+    p.offsetX = clamp($("offsetX").value, -2000, 2000, 0);
+    p.offsetY = clamp($("offsetY").value, -2000, 2000, 0);
+    p.decimalPlaces = clamp($("decimals").value, 1, 3, 3);
+    p.fontSize = clamp($("fontSize").value, 10, 32, 14);
+    p.opacityPercent = clamp($("opacity").value, 35, 100, 100);
+    p.padding = clamp($("padding").value, 4, 32, 12);
+    p.showTitle = $("showTitle").checked;
+    p.showSeparators = $("showSeparators").checked;
+    p.showUnits = $("showUnits").checked;
+  }
+
+  function onDraftChanged() {
+    readControlsToDraft();
+    $("overlayStatusText").textContent = state.draft.overlayEnabled ? "ВКЛЮЧЕН" : "ВЫКЛЮЧЕН";
+    applyPreviewAppearance();
+    updateOutputModeUi();
+    updateDirtyState();
+    window.clearTimeout(state.previewTimer);
+    state.previewTimer = window.setTimeout(() => post("preview", { draft: state.draft }), 90);
+  }
+
+  function updateOutputModeUi() {
+    const isRtss = state.draft.outputMode === 1;
+    document.querySelectorAll(".native-only").forEach((element) => element.classList.toggle("is-hidden", isRtss));
+    document.querySelectorAll(".mode-button").forEach((button) => button.classList.toggle("active", Number(button.dataset.mode) === state.draft.outputMode));
+  }
+
+  function updateDirtyState() {
+    const dirty = signature(state.draft) !== state.appliedSignature;
+    const element = $("dirtyState");
+    element.classList.toggle("changed", dirty);
+    element.innerHTML = dirty
+      ? "<strong>ЕСТЬ ИЗМЕНЕНИЯ</strong>: нажмите ПРИМЕНИТЬ для сохранения"
+      : "<strong>СИНХРОНИЗИРОВАНО</strong>: изменения отсутствуют";
+    $("apply").disabled = false;
+  }
+
+  function applyPreviewAppearance() {
+    if (!state.draft || !state.draft.presentation) return;
+    const presentation = state.draft.presentation;
+    const palette = previewPalettes[clamp(presentation.colorTheme, 0, previewPalettes.length - 1, 0)] || previewPalettes[0];
+    const preview = $("preview");
+    preview.style.setProperty("--preview-bg", palette.bg);
+    preview.style.setProperty("--preview-border", palette.border);
+    preview.style.setProperty("--preview-text", palette.text);
+    preview.style.setProperty("--preview-accent", palette.accent);
+    preview.style.setProperty("--preview-muted", palette.muted);
+    preview.style.fontSize = `${clamp(presentation.fontSize, 10, 32, 14)}px`;
+    preview.style.padding = `${clamp(presentation.padding, 4, 32, 12)}px`;
+    preview.style.opacity = String(clamp(presentation.opacityPercent, 35, 100, 100) / 100);
+    preview.dataset.theme = palette.name.toLowerCase();
+  }
+
+  function renderPreview(lines) {
+    const preview = $("preview");
+    preview.textContent = "";
+    (lines || []).forEach((line) => {
+      const element = document.createElement("div");
+      element.className = "preview-line " + String(line.role || "metric").toLowerCase();
+      element.textContent = line.text;
+      preview.appendChild(element);
+    });
+    applyPreviewAppearance();
+  }
+
+  function setState(message) {
+    state.metrics = Array.isArray(message.metrics) ? message.metrics : [];
+    state.draft = clone(message.settings || defaultDraft());
+    state.appliedSignature = signature(state.draft);
+    syncControlsFromDraft();
+    $("modeInfo").innerHTML = `<strong>РЕЖИМ ВЫВОДА</strong><span>${escapeHtml(message.outputInfo || "")}</span>`;
+    renderPreview(message.previewLines || []);
+    document.body.classList.add("content-ready");
+  }
+
+  function replayEntrance() {
+    const app = document.querySelector(".app");
+    if (app && app.animate) {
+      app.animate([{ opacity: .25 }, { opacity: 1 }], {
+        duration: 150,
+        easing: "ease-out"
+      });
+    }
+  }
+
+  function showToast(text, error = false) {
+    const toast = $("toast");
+    toast.textContent = text;
+    toast.classList.toggle("error", !!error);
+    toast.classList.add("show");
+    window.clearTimeout(state.toastTimer);
+    state.toastTimer = window.setTimeout(() => toast.classList.remove("show"), 2800);
+  }
+
+  function startHotkeyCapture() {
+    state.capturingHotkey = true;
+    const value = $("hotkeyValue");
+    value.classList.add("capturing");
+    value.textContent = "НАЖМИТЕ СОЧЕТАНИЕ…";
+    $("captureHotkey").textContent = "ОТМЕНА";
+    window.focus();
+  }
+
+  function stopHotkeyCapture(restore = true) {
+    state.capturingHotkey = false;
+    $("hotkeyValue").classList.remove("capturing");
+    $("captureHotkey").textContent = "НАЗНАЧИТЬ";
+    if (restore) $("hotkeyValue").textContent = state.draft.hotkey.display || "НЕ НАЗНАЧЕНА";
+  }
+
+  function virtualKeyFromEvent(event) {
+    const code = event.code || "";
+    if (/^Key[A-Z]$/.test(code)) return code.charCodeAt(3);
+    if (/^Digit[0-9]$/.test(code)) return code.charCodeAt(5);
+    const f = /^F([1-9]|1[0-9]|2[0-4])$/.exec(code);
+    if (f) return 0x70 + Number(f[1]) - 1;
+    return ({ Escape:0x1B, Space:0x20, PageUp:0x21, PageDown:0x22, End:0x23, Home:0x24,
+      ArrowLeft:0x25, ArrowUp:0x26, ArrowRight:0x27, ArrowDown:0x28,
+      PrintScreen:0x2C, Insert:0x2D, Delete:0x2E })[code] ||
+      ((Number(event.keyCode || event.which || 0) > 0 && Number(event.keyCode || event.which || 0) <= 0xFE)
+        ? Number(event.keyCode || event.which || 0)
+        : 0);
+  }
+
+  function hotkeyDisplay(modifiers, virtualKey) {
+    const parts = [];
+    if (modifiers & 0x2) parts.push("Ctrl");
+    if (modifiers & 0x1) parts.push("Alt");
+    if (modifiers & 0x4) parts.push("Shift");
+    if (modifiers & 0x8) parts.push("Win");
+    let key = "VK-" + virtualKey.toString(16).toUpperCase().padStart(2, "0");
+    if (virtualKey >= 0x70 && virtualKey <= 0x87) key = "F" + (virtualKey - 0x70 + 1);
+    else if ((virtualKey >= 0x30 && virtualKey <= 0x39) || (virtualKey >= 0x41 && virtualKey <= 0x5A)) key = String.fromCharCode(virtualKey);
+    else key = ({0x1B:"Esc",0x20:"Space",0x21:"PageUp",0x22:"PageDown",0x23:"End",0x24:"Home",0x25:"Left",0x26:"Up",0x27:"Right",0x28:"Down",0x2C:"PrintScreen",0x2D:"Insert",0x2E:"Delete"})[virtualKey] || key;
+    parts.push(key);
+    return parts.join("+");
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (!state.capturingHotkey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.code === "Escape") { stopHotkeyCapture(true); return; }
+    if (["ControlLeft","ControlRight","AltLeft","AltRight","ShiftLeft","ShiftRight","MetaLeft","MetaRight"].includes(event.code)) return;
+
+    const virtualKey = virtualKeyFromEvent(event);
+    const modifiers = (event.altKey ? 0x1 : 0) | (event.ctrlKey ? 0x2 : 0) | (event.shiftKey ? 0x4 : 0) | (event.metaKey ? 0x8 : 0);
+    const fKey = virtualKey >= 0x70 && virtualKey <= 0x87;
+    if (!virtualKey || (!modifiers && !fKey)) {
+      showToast("Нужен модификатор Ctrl / Alt / Shift / Win либо клавиша F1–F24.", true);
+      return;
+    }
+    state.draft.hotkey = { enabled: true, modifiers, virtualKey, display: hotkeyDisplay(modifiers, virtualKey) };
+    stopHotkeyCapture(false);
+    $("hotkeyValue").textContent = state.draft.hotkey.display;
+    onDraftChanged();
+  }, true);
+
+  $("overlayEnabled").addEventListener("change", onDraftChanged);
+  document.querySelectorAll(".mode-button").forEach((button) => button.addEventListener("click", () => {
+    state.draft.outputMode = Number(button.dataset.mode);
+    onDraftChanged();
+  }));
+  ["layoutMode","anchor","colorTheme","refresh","offsetX","offsetY","decimals","fontSize","opacity","padding","showTitle","showSeparators","showUnits"].forEach((id) => {
+    $(id).addEventListener(id.startsWith("show") ? "change" : "input", onDraftChanged);
+  });
+  [["fontSizeRange","fontSize"],["opacityRange","opacity"],["paddingRange","padding"]].forEach(([range, number]) => {
+    $(range).addEventListener("input", () => { $(number).value = $(range).value; onDraftChanged(); });
+    $(number).addEventListener("input", () => { $(range).value = $(number).value; });
+  });
+  $("selectAll").addEventListener("click", () => { state.draft.enabledMetricIds = state.metrics.map((item) => item.id); renderMetrics(); onDraftChanged(); });
+  $("selectNone").addEventListener("click", () => { state.draft.enabledMetricIds = []; renderMetrics(); onDraftChanged(); });
+  $("captureHotkey").addEventListener("click", () => state.capturingHotkey ? stopHotkeyCapture(true) : startHotkeyCapture());
+  $("clearHotkey").addEventListener("click", () => {
+    stopHotkeyCapture(false);
+    state.draft.hotkey = { enabled: false, modifiers: 0, virtualKey: 0, display: "НЕ НАЗНАЧЕНА" };
+    $("hotkeyValue").textContent = state.draft.hotkey.display;
+    onDraftChanged();
+  });
+  $("defaults").addEventListener("click", () => post("defaults"));
+  $("apply").addEventListener("click", () => { readControlsToDraft(); post("apply", { draft: state.draft }); });
+
+  if (bridge) {
+    bridge.addEventListener("message", (event) => {
+      const message = event.data || {};
+      switch (message.type) {
+        case "windowShown": replayEntrance(); break;
+        case "state": setState(message); break;
+        case "draft":
+          if (message.metrics && Array.isArray(message.metrics)) state.metrics = message.metrics;
+          state.draft = clone(message.settings || defaultDraft());
+          syncControlsFromDraft();
+          if (message.outputInfo) $("modeInfo").innerHTML = `<strong>РЕЖИМ ВЫВОДА</strong><span>${escapeHtml(message.outputInfo)}</span>`;
+          renderPreview(message.previewLines || []);
+          document.body.classList.add("content-ready");
+          break;
+        case "preview":
+          renderPreview(message.previewLines || []);
+          if (message.outputInfo) $("modeInfo").innerHTML = `<strong>РЕЖИМ ВЫВОДА</strong><span>${escapeHtml(message.outputInfo)}</span>`;
+          break;
+        case "toast": showToast(message.message || "", !!message.error); break;
+        case "applyResult":
+          if (message.success && message.settings) {
+            state.draft = clone(message.settings);
+            state.appliedSignature = signature(state.draft);
+            syncControlsFromDraft();
+            if (message.outputInfo) $("modeInfo").innerHTML = `<strong>РЕЖИМ ВЫВОДА</strong><span>${escapeHtml(message.outputInfo)}</span>`;
+            renderPreview(message.previewLines || []);
+          }
+          showToast(message.message || (message.success ? "Настройки применены." : "Не удалось применить настройки."), !message.success);
+          break;
+      }
+    });
+    post("ready");
+  } else {
+    state.metrics = [
+      { id: 0, name: "PresentMode", group: "PRESENT" },
+      { id: 1, name: "Average MsBetweenAppStart", group: "ЦП" },
+      { id: 2, name: "Average MsCPUBusy", group: "ЦП" },
+      { id: 3, name: "Average MsCPUWait", group: "ЦП" },
+      { id: 4, name: "Average MsGPUBusy", group: "РЕНДЕР" },
+      { id: 5, name: "Average MsGPUTime", group: "РЕНДЕР" },
+      { id: 6, name: "Average MsGPUWait", group: "РЕНДЕР" },
+      { id: 7, name: "Average MsGPULatency", group: "РЕНДЕР" },
+      { id: 8, name: "Average MsBetweenPresents", group: "РЕНДЕР" },
+      { id: 9, name: "SD MsBetweenPresents", group: "РЕНДЕР" },
+      { id: 10, name: "RMSSD MsBetweenPresents", group: "РЕНДЕР" },
+      { id: 11, name: "Stutter Time % [CapFrameX]", group: "STUTTER" },
+      { id: 12, name: "Stutter Frames [CapFrameX]", group: "STUTTER" },
+      { id: 13, name: "Average DisplayLatency", group: "ОТОБРАЖЕНИЕ" },
+      { id: 14, name: "SD DisplayLatency", group: "ОТОБРАЖЕНИЕ" },
+      { id: 15, name: "RMSSD DisplayLatency", group: "ОТОБРАЖЕНИЕ" },
+      { id: 16, name: "Average MsUntilDisplayed", group: "ОТОБРАЖЕНИЕ" },
+      { id: 17, name: "SD MsUntilDisplayed", group: "ОТОБРАЖЕНИЕ" },
+      { id: 18, name: "RMSSD MsUntilDisplayed", group: "ОТОБРАЖЕНИЕ" },
+      { id: 19, name: "Average MsBetweenDisplayChange", group: "ОТОБРАЖЕНИЕ" },
+      { id: 20, name: "SD MsBetweenDisplayChange", group: "ОТОБРАЖЕНИЕ" },
+      { id: 21, name: "RMSSD MsBetweenDisplayChange", group: "ОТОБРАЖЕНИЕ" },
+      { id: 22, name: "Displayed Stepwise-Relative", group: "ОТОБРАЖЕНИЕ" }
+    ];
+    state.draft = defaultDraft();
+    state.appliedSignature = signature(state.draft);
+    syncControlsFromDraft();
+    $("modeInfo").innerHTML = "<strong>РЕЖИМ ВЫВОДА</strong><span>Автономный предпросмотр: нативный AOT-модуль не подключён.</span>";
+    renderPreview([
+      {text:"DLM - PIPELINE",role:"title"},
+      {text:"PresentMode                     Hardware: Independent Flip",role:"metric"},
+      {text:"Average MsBetweenAppStart       4.167 ms",role:"metric"},
+      {text:"Average MsGPUBusy               3.462 ms",role:"metric"},
+      {text:"Average MsGPUTime               3.711 ms",role:"metric"},
+      {text:"Average MsGPULatency            1.104 ms",role:"metric"},
+      {text:"Average MsBetweenPresents       4.167 ms",role:"metric"},
+      {text:"SD MsBetweenPresents            0.286 ms",role:"metric"},
+      {text:"Stutter Time % [CapFrameX]      1.49%",role:"metric"},
+      {text:"Stutter Frames [CapFrameX]      3 / 239",role:"metric"},
+      {text:"Average DisplayLatency          8.614 ms",role:"metric"},
+      {text:"SD DisplayLatency               0.731 ms",role:"metric"},
+      {text:"RMSSD DisplayLatency            0.946 ms",role:"metric"},
+      {text:"Average MsUntilDisplayed        5.293 ms",role:"metric"},
+      {text:"RMSSD MsUntilDisplayed          0.367 ms",role:"metric"},
+      {text:"Average MsBetweenDisplayChange  4.167 ms",role:"metric"},
+      {text:"SD MsBetweenDisplayChange       0.621 ms",role:"metric"},
+      {text:"Displayed Stepwise-Relative     32.42%",role:"metric"}
+    ]);
+    document.body.classList.add("content-ready");
+  }
+})();
+</script>
+</body>
+</html>

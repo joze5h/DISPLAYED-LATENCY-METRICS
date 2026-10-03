@@ -1,0 +1,951 @@
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<title>DISPLAYED-LATENCY-METRICS: Метрики и формулы</title>
+<style>
+@font-face {
+  font-family: "JetBrains Mono NL";
+  src: url("__JETBRAINS_MONO_DATA__") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-jetbrains: "JetBrains Mono NL";
+  --bg: #080c12;
+  --border: #253244;
+  --border-soft: #1b2735;
+  --text: #e8eef5;
+  --muted: #93a4b7;
+  --subtle: #64758a;
+  --accent: #4f9cff;
+  --accent-2: #7eb7ff;
+  --green: #42d392;
+  --red: #ff626a;
+  --shadow: 0 18px 50px rgba(0,0,0,.30);
+  --mono: var(--font-jetbrains), Consolas, monospace;
+  --ui: var(--font-jetbrains), "Segoe UI", sans-serif;
+  --sidebar-width: 304px;
+  --mobile-sidebar-width: min(326px, calc(100vw - 32px));
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: auto; scroll-padding-top: 20px; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(900px 480px at 78% -5%, rgba(79,156,255,.12), transparent 65%),
+    linear-gradient(180deg, #0a1018 0%, var(--bg) 46%, #070a0f 100%);
+  font-family: var(--ui);
+  font-size: 15px;
+  line-height: 1.64;
+  overflow-x: hidden;
+}
+a { color: var(--accent-2); text-decoration: none; }
+a:hover { color: #b9d8ff; }
+button, input { font: inherit; }
+button { border: 0; }
+::selection { background: rgba(79,156,255,.28); color: #fff; }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: #0a1017; }
+::-webkit-scrollbar-thumb { background: #2a384b; border: 3px solid #0a1017; border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: #3a4c63; }
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  min-height: 100vh;
+  opacity: 0;
+  transition: opacity .18s ease-out;
+}
+body.content-ready .app { opacity: 1; }
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  padding: 22px 26px 32px 18px;
+  border-right: 1px solid var(--border-soft);
+  background: rgba(8,12,18,.92);
+  z-index: 20;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding-block: 14px;
+}
+.search-wrap { padding: 2px 2px 12px; }
+.sidebar-actions { display: grid; gap: 11px; margin-top: 18px; padding: 14px 2px 0; border-top: 1px solid var(--border-soft); }
+.doc-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 1px solid rgba(79,156,255,.34);
+  border-radius: 0;
+  background: #0d1722;
+  box-shadow: inset 3px 0 0 rgba(79,156,255,.7);
+  color: #e2efff;
+  font-size: 14px;
+  font-weight: 760;
+  line-height: 1.25;
+  letter-spacing: .015em;
+  text-align: center;
+  transition: background-color .14s ease, border-color .14s ease, color .14s ease, transform .14s ease, box-shadow .14s ease;
+}
+.doc-link:hover { transform: translateY(-1px); background: #122235; border-color: rgba(79,156,255,.62); box-shadow: inset 3px 0 0 #65adff; color: #fff; }
+.doc-link:focus-visible { outline: 2px solid rgba(126,190,255,.72); outline-offset: 2px; }
+.doc-link.capframex {
+  border-color: rgba(255,112,104,.38);
+  background: #1a1114;
+  box-shadow: inset 3px 0 0 rgba(255,112,104,.76);
+  color: #ffd6d2;
+}
+.doc-link.capframex:hover { border-color: rgba(255,112,104,.68); background: #251519; box-shadow: inset 3px 0 0 #ff837b; }
+.doc-link.author {
+  border-color: rgba(246,196,83,.38);
+  background: #1a1710;
+  box-shadow: inset 3px 0 0 rgba(246,196,83,.76);
+  color: #ffe39a;
+  font-family: var(--mono);
+  letter-spacing: .055em;
+}
+.doc-link.author:hover { border-color: rgba(246,196,83,.68); background: #242014; box-shadow: inset 3px 0 0 #f6c453; }
+.search {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #0c131c;
+  color: var(--text);
+  border-radius: 0;
+  height: 44px;
+  padding: 0 12px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,156,255,.13); }
+.nav-group { margin-top: 12px; }
+.nav-label {
+  padding: 10px 9px 6px;
+  color: var(--subtle);
+  font-size: 11px;
+  font-weight: 760;
+  text-transform: uppercase;
+  letter-spacing: .13em;
+}
+.nav-link {
+  width: 100%;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 6px minmax(0, 1fr);
+  align-items: center;
+  justify-content: stretch;
+  column-gap: 10px;
+  min-height: 40px;
+  padding: 0 10px;
+  margin: 2px 0;
+  border: 1px solid transparent;
+  border-radius: 0;
+  color: #b7c4d2;
+  font-size: 13px;
+  line-height: 1;
+  transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.nav-link::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  align-self: center;
+  border-radius: 50%;
+  background: #3b4c60;
+}
+.nav-link > span {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 40px;
+  padding-top: 1px;
+  line-height: 1.15;
+  transform: translateY(1px);
+}
+.nav-link:hover { background: #101925; color: var(--text); }
+.nav-link.active { background: rgba(79,156,255,.11); color: #ddecff; border-color: rgba(79,156,255,.24); }
+.nav-link.active::before { background: var(--accent); box-shadow: 0 0 0 4px rgba(79,156,255,.12); }
+.nav-link.active { border-left-color: var(--accent); }
+
+@keyframes metric-target-flash {
+  0%, 100% {
+    border-color: var(--border-soft);
+    box-shadow: 0 10px 28px rgba(0,0,0,.14);
+  }
+  20%, 68% {
+    border-color: var(--red);
+    box-shadow: 0 0 0 1px rgba(255,98,106,.34), 0 0 22px rgba(255,98,106,.13);
+  }
+}
+.metric-card.target-flash {
+  animation: metric-target-flash 1s cubic-bezier(.4,0,.2,1) both;
+}
+
+.main { grid-column: 2; min-width: 0; }
+.page { max-width: 1120px; margin: 0 auto; padding: 20px 46px 44px; }
+
+.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin: 34px 0 16px; }
+.section-heading h2 { margin: 0; font-size: 24px; letter-spacing: -.025em; }
+.section-heading p { margin: 0; color: var(--muted); font-size: 13px; }
+.metric-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(17,26,38,.96), rgba(12,19,28,.96));
+  box-shadow: 0 10px 28px rgba(0,0,0,.14);
+}
+
+.metric-card {
+  margin: 0 0 16px;
+  overflow: hidden;
+  scroll-margin-top: 22px;
+  transition: border-color .18s, transform .18s;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 360px;
+}
+.metric-card:hover { border-color: #33465e; }
+.metric-card,
+.formula,
+.interpretation,
+.note,
+.group-chip,
+.empty-state,
+.doc-link,
+.search,
+.mobile-toggle {
+  border-radius: 0;
+}
+.metric-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px 15px;
+  border-bottom: 1px solid var(--border-soft);
+  background: rgba(15,23,34,.75);
+}
+.metric-title { min-width: 0; }
+.metric-title h3 { margin: 0; font-size: 19px; line-height: 1.3; letter-spacing: -.018em; }
+.metric-title .source { margin-top: 6px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.metric-title code { color: #91c2ff; font-size: 1em; }
+.group-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  color: #aebdcb;
+  font: 700 11px/1 var(--mono);
+  letter-spacing: .085em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.group-chip.cpu { color: #84d6ff; border-color: rgba(74,181,235,.28); }
+.group-chip.render { color: #c5b2ff; border-color: rgba(182,156,255,.28); }
+.group-chip.stutter { color: #ff9189; border-color: rgba(255,112,104,.38); }
+.group-chip.display { color: #80e1b4; border-color: rgba(66,211,146,.28); }
+.metric-body { padding: 20px 22px 22px; }
+.metric-body > p { margin: 0 0 14px; color: #bdcad7; }
+.metric-body > p:last-child { margin-bottom: 0; }
+
+.formula {
+  display: grid;
+  place-items: center;
+  min-height: 116px;
+  margin: 16px 0;
+  padding: 22px 18px;
+  overflow-x: auto;
+  border: 1px solid #223146;
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(7,12,18,.72), rgba(9,15,23,.88)),
+    repeating-linear-gradient(0deg, transparent 0, transparent 23px, rgba(79,156,255,.025) 24px);
+}
+.formula math { font-size: 1.42rem; color: #f1f6fb; }
+.formula-label { align-self: start; justify-self: start; margin-bottom: -6px; color: var(--subtle); font: 700 10px/1 var(--mono); letter-spacing: .11em; text-transform: uppercase; }
+.interpretation {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  margin-top: 15px;
+  padding: 13px 14px;
+  border: 1px solid rgba(66,211,146,.18);
+  border-radius: 0;
+  background: rgba(66,211,146,.055);
+  color: #bfe8d3;
+}
+.interpretation::before { content: "↓"; color: var(--green); font: 800 16px/1 var(--mono); margin-top: 3px; }
+.note {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(246,196,83,.18);
+  border-radius: 0;
+  background: rgba(246,196,83,.05);
+  color: #dfd3ac;
+}
+code {
+  padding: .12em .36em;
+  border-radius: 0;
+  background: #09111a;
+  color: #8ec1ff;
+  font-family: var(--mono);
+  font-size: .9em;
+}
+
+.empty-state { display: none; padding: 32px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 12px; }
+.mobile-toggle {
+  display: none;
+  appearance: none;
+  -webkit-appearance: none;
+  place-items: center;
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  width: 42px;
+  height: 42px;
+  z-index: 30;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: #101925;
+  color: var(--text);
+  cursor: pointer;
+  transition: left .18s ease, background .18s ease, border-color .18s ease;
+}
+
+@media (max-width: 980px) {
+  .app { display: block; }
+  .main { grid-column: auto; }
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform .18s ease;
+    width: var(--mobile-sidebar-width);
+    padding: 88px 30px 36px 18px;
+    box-shadow: var(--shadow);
+  }
+  .sidebar.open { transform: translateX(0); }
+  body.nav-open .mobile-toggle {
+    left: calc(var(--mobile-sidebar-width) - 76px);
+    background: #132031;
+    border-color: rgba(79,156,255,.35);
+  }
+  .page { padding: 82px 18px 40px; }
+  .mobile-toggle { display: grid; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .metric-card.target-flash { animation-duration: .35s; }
+}
+
+@media (max-width: 640px) {
+  .page { padding: 82px 14px 36px; }
+  .metric-head { display: block; }
+  .group-chip { display: inline-block; margin-top: 10px; }
+  .metric-body { padding-inline: 16px; }
+  .formula { padding-inline: 8px; }
+  .formula math { font-size: 1.12rem; }
+}
+
+</style>
+</head>
+
+<body>
+<button class="mobile-toggle" id="mobileToggle" aria-label="Открыть навигацию">☰</button>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="search-wrap"><input class="search" id="search" type="search" placeholder="Поиск по метрикам…" autocomplete="off" /></div>
+    <nav id="nav">
+      <div class="nav-group">
+        <div class="nav-label">Presentation</div>
+        <button class="nav-link" type="button" data-target="present-mode"><span>PresentMode</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">CPU</div>
+        <button class="nav-link" type="button" data-target="avg-between-app-start"><span>Average MsBetweenAppStart</span></button>
+        <button class="nav-link" type="button" data-target="avg-cpu-busy"><span>Average MsCPUBusy</span></button>
+        <button class="nav-link" type="button" data-target="avg-cpu-wait"><span>Average MsCPUWait</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">GPU</div>
+        <button class="nav-link" type="button" data-target="avg-gpu-busy"><span>Average MsGPUBusy</span></button>
+        <button class="nav-link" type="button" data-target="avg-gpu-time"><span>Average MsGPUTime</span></button>
+        <button class="nav-link" type="button" data-target="avg-gpu-wait"><span>Average MsGPUWait</span></button>
+        <button class="nav-link" type="button" data-target="avg-gpu-latency"><span>Average MsGPULatency</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Render / Present</div>
+        <button class="nav-link" type="button" data-target="avg-between-presents"><span>Average MsBetweenPresents</span></button>
+        <button class="nav-link" type="button" data-target="sd-between-presents"><span>SD MsBetweenPresents</span></button>
+        <button class="nav-link" type="button" data-target="rmssd-between-presents"><span>RMSSD MsBetweenPresents</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Stutter analysis</div>
+        <button class="nav-link" type="button" data-target="stutter-time-capframex"><span>Stutter Time % [CapFrameX]</span></button>
+        <button class="nav-link" type="button" data-target="stutter-frames-capframex"><span>Stutter Frames [CapFrameX]</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Display</div>
+        <button class="nav-link" type="button" data-target="avg-display-latency"><span>Average DisplayLatency</span></button>
+        <button class="nav-link" type="button" data-target="sd-display-latency"><span>SD DisplayLatency</span></button>
+        <button class="nav-link" type="button" data-target="rmssd-display-latency"><span>RMSSD DisplayLatency</span></button>
+        <button class="nav-link" type="button" data-target="avg-until-displayed"><span>Average MsUntilDisplayed</span></button>
+        <button class="nav-link" type="button" data-target="sd-until-displayed"><span>SD MsUntilDisplayed</span></button>
+        <button class="nav-link" type="button" data-target="rmssd-until-displayed"><span>RMSSD MsUntilDisplayed</span></button>
+        <button class="nav-link" type="button" data-target="avg-between-display-change"><span>Average MsBetweenDisplayChange</span></button>
+        <button class="nav-link" type="button" data-target="sd-between-display-change"><span>SD MsBetweenDisplayChange</span></button>
+        <button class="nav-link" type="button" data-target="rmssd-between-display-change"><span>RMSSD MsBetweenDisplayChange</span></button>
+        <button class="nav-link" type="button" data-target="displayed-stepwise-relative"><span>Displayed Stepwise-Relative</span></button>
+      </div>
+    </nav>
+    <div class="sidebar-actions" aria-label="Documentation and author links">
+      <a class="doc-link presentmon" href="https://github.com/GameTechDev/PresentMon/blob/v2.5.1/README-ConsoleApplication.md" target="_blank" rel="noopener noreferrer">PresentMon documentation ↗</a>
+      <a class="doc-link capframex" href="https://github.com/CXWorld/CapFrameX#readme" target="_blank" rel="noopener noreferrer">CapFrameX documentation ↗</a>
+      <a class="doc-link author" href="https://t.me/dwtweaking" target="_blank" rel="noopener noreferrer">VERSION BY D.W.T. ↗</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page">
+
+      <div class="section-heading"><h2>Presentation mode</h2><p>Текущий путь композиции выбранного swap chain</p></div>
+
+      <article id="present-mode" class="metric-card searchable" data-search="presentmode present mode composition compositing flip independent composed hardware presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>PresentMode</h3><div class="source">Источник: <code>PresentMon PresentMode</code></div></div><span class="group-chip render">Present</span></div>
+        <div class="metric-body">
+          <p>Категориальное raw-поле PresentMon для последнего кадра выбранного swap chain. Показывает, каким presentation path Windows доставляет кадр: independent flip, composed flip, legacy flip и другие документированные режимы.</p>
+          <div class="note">Значение выводится напрямую из <code>PM_METRIC_PRESENT_MODE</code>; усреднение и пользовательская формула не применяются. При изменении режима окно старых samples очищается, поэтому числовые агрегаты не смешивают разные presentation paths.</div>
+          <div class="interpretation">Для низкой задержки обычно важны <code>Hardware: Independent Flip</code> и <code>Hardware Composed: Independent Flip</code>; <code>Composed: Flip</code> означает участие DWM в композиции.</div>
+        </div>
+      </article>
+
+      <div class="section-heading"><h2>CPU pipeline</h2><p>Покадровые CPU-поля PresentMon</p></div>
+
+      <article id="avg-between-app-start" class="metric-card searchable" data-search="average mean msbetweenappstart cpu frame start cadence presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Average MsBetweenAppStart</h3><div class="source">Источник: <code>PresentMon MsBetweenAppStart</code></div></div><span class="group-chip cpu">CPU</span></div>
+        <div class="metric-body">
+          <p>Среднее время от начала CPU-работы над текущим application frame до начала CPU-работы над следующим frame.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>MsBetweenAppStart</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="interpretation">Показывает общий CPU frame cadence приложения. Меньше: чаще начинается обработка новых кадров.</div>
+        </div>
+      </article>
+
+      <article id="avg-cpu-busy" class="metric-card searchable" data-search="average mean mscpubusy cpu busy work before present presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Average MsCPUBusy</h3><div class="source">Источник: <code>PresentMon MsCPUBusy</code></div></div><span class="group-chip cpu">CPU</span></div>
+        <div class="metric-body">
+          <p>Среднее время, которое CPU работал над кадром до вызова <code>Present()</code>.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>MsCPUBusy</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="interpretation">Меньше: приложению требуется меньше активного CPU-времени для подготовки кадра к Present().</div>
+        </div>
+      </article>
+
+      <article id="avg-cpu-wait" class="metric-card searchable" data-search="average mean mscpuwait cpu wait next frame presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Average MsCPUWait</h3><div class="source">Источник: <code>PresentMon MsCPUWait</code></div></div><span class="group-chip cpu">CPU</span></div>
+        <div class="metric-body">
+          <p>Среднее время ожидания CPU перед началом следующего кадра.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>MsCPUWait</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="interpretation">Отражает ожидание между CPU frames, включая pacing, блокировки и ожидание доступности следующей работы.</div>
+        </div>
+      </article>
+
+      <div class="section-heading"><h2>GPU pipeline</h2><p>Покадровые GPU-поля PresentMon</p></div>
+
+      <article id="avg-gpu-busy" class="metric-card searchable" data-search="average mean msgpubusy gpu busy active work presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Average MsGPUBusy</h3><div class="source">Источник: <code>PresentMon MsGPUBusy</code></div></div><span class="group-chip render">GPU</span></div>
+        <div class="metric-body">
+          <p>Среднее время, в течение которого хотя бы один GPU engine активно выполнял работу целевого процесса для кадра.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>MsGPUBusy</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="interpretation">Показывает активную GPU-работу приложения. Рост при стабильном CPU cadence указывает на увеличение GPU-нагрузки кадра.</div>
+        </div>
+      </article>
+
+      <article id="avg-gpu-time" class="metric-card searchable" data-search="average mean msgputime gpu time total frame presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Average MsGPUTime</h3><div class="source">Источник: <code>PresentMon MsGPUTime</code></div></div><span class="group-chip render">GPU</span></div>
+        <div class="metric-body">
+          <p>Среднее полное время GPU-обработки, относимое PresentMon к кадру.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>MsGPUTime</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="interpretation">Характеризует общий GPU-интервал кадра по данным PresentMon; не заменяется расчётом из других полей.</div>
+        </div>
+      </article>
+
+      <article id="avg-gpu-wait" class="metric-card searchable" data-search="average mean msgpuwait gpu wait idle frame presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Average MsGPUWait</h3><div class="source">Источник: <code>PresentMon MsGPUWait</code></div></div><span class="group-chip render">GPU</span></div>
+        <div class="metric-body">
+          <p>Среднее время, в течение которого GPU был неактивен во время обработки данного кадра.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>MsGPUWait</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="interpretation">Рост показывает увеличение idle-периодов GPU внутри интервала обработки кадра.</div>
+        </div>
+      </article>
+
+      <article id="avg-gpu-latency" class="metric-card searchable" data-search="average mean msgpulatency gpu latency frame start queue presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Average MsGPULatency</h3><div class="source">Источник: <code>PresentMon MsGPULatency</code></div></div><span class="group-chip render">GPU</span></div>
+        <div class="metric-body">
+          <p>Среднее время от начала кадра до момента, когда GPU начал выполнять относящуюся к нему работу.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>MsGPULatency</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="interpretation">Рост означает, что GPU позже начинает работу над кадром относительно CPU frame start.</div>
+        </div>
+      </article>
+
+      <div class="section-heading"><h2>Render / Present cadence</h2><p>Интервалы между вызовами Present()</p></div>
+
+      <article id="avg-between-presents" class="metric-card searchable" data-search="average mean msbetweenpresents present interval cadence presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Average MsBetweenPresents</h3><div class="source">Источник: <code>PresentMon MsBetweenPresents</code></div></div><span class="group-chip render">Render</span></div>
+        <div class="metric-body">
+          <p>Средний интервал между текущим и предыдущим вызовами <code>Present()</code>.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>MsBetweenPresents</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="interpretation">Меньше: приложение чаще передаёт кадры в presentation pipeline.</div>
+        </div>
+      </article>
+
+      <article id="sd-between-presents" class="metric-card searchable" data-search="sd standard deviation population msbetweenpresents present interval cadence presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>SD MsBetweenPresents</h3><div class="source">Сырой ряд: <code>PresentMon MsBetweenPresents</code></div></div><span class="group-chip render">Render</span></div>
+        <div class="metric-body">
+          <p>Population standard deviation положительных значений <code>MsBetweenPresents</code> в текущем окне.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>SD</mi><mo>=</mo><msqrt><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mover><mi>x</mi><mo>¯</mo></mover><mo>)</mo></mrow><mn>2</mn></msup></mrow><mi>N</mi></mfrac></msqrt></mrow></math></div>
+          <div class="note"><code>x = MsBetweenPresents</code>; используется population denominator <code>N</code>.</div>
+          <div class="interpretation">Меньше: стабильнее общий разброс интервалов между вызовами Present().</div>
+        </div>
+      </article>
+
+      <article id="rmssd-between-presents" class="metric-card searchable" data-search="rmssd msbetweenpresents successive differences present cadence presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>RMSSD MsBetweenPresents</h3><div class="source">Сырой ряд: <code>PresentMon MsBetweenPresents</code></div></div><span class="group-chip render">Render</span></div>
+        <div class="metric-body">
+          <p>Корень из среднего квадрата разностей между соседними положительными значениями <code>MsBetweenPresents</code> в порядке захвата.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>RMSSD</mi><mo>=</mo><msqrt><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>K</mi></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>j</mi></msub><mo>−</mo><msub><mi>x</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>)</mo></mrow><mn>2</mn></msup></mrow><mi>K</mi></mfrac></msqrt></mrow></math></div>
+          <div class="note"><code>x = MsBetweenPresents</code>; <code>K</code>: число валидных последовательных пар.</div>
+          <div class="interpretation">Меньше: ровнее интервалы между вызовами Present().</div>
+        </div>
+      </article>
+
+      <div class="section-heading"><h2>Stutter analysis</h2><p>CapFrameX-классификация по сырому ряду PresentMon MsBetweenPresents</p></div>
+
+      <article id="stutter-time-capframex" class="metric-card searchable" data-search="stutter time percentage capframex 2.5 moving average msbetweenpresents frametime">
+        <div class="metric-head"><div class="metric-title"><h3>Stutter Time % [CapFrameX]</h3><div class="source">Источник: <code>PresentMon MsBetweenPresents</code>; метод: <code>CapFrameX</code></div></div><span class="group-chip stutter">Analysis</span></div>
+        <div class="metric-body">
+          <p>Процент суммарного времени окна, пришедшийся на кадры, классифицированные как статтеры алгоритмом CapFrameX. Используется тот же набор stutter-флагов, что и для <code>Stutter Frames [CapFrameX]</code>.</p>
+          <div class="formula"><div class="formula-label">Classification</div><math display="block"><mrow><msub><mi>x</mi><mi>i</mi></msub><mo>&gt;</mo><mn>2.5</mn><mo>×</mo><msub><mi>B</mi><mi>i</mi></msub></mrow></math></div>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>StutterTime</mi><mo>%</mo><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><mrow><munder><mo>∑</mo><mtext>stutter i</mtext></munder><msub><mi>x</mi><mi>i</mi></msub></mrow><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>x</mi><mi>i</mi></msub></mrow></mfrac></mrow></math></div>
+          <div class="note"><code>x = MsBetweenPresents</code>. Размер trailing moving-average окна: <code>Convert.ToInt32(10 × sqrt(mean(x)))</code>. При построении baseline значение, превышающее предыдущее более чем в 3 раза, заменяется предыдущим значением: это повторяет <code>SampleBasedMovingAverage</code> CapFrameX.</div>
+          <div class="interpretation">Меньше: меньшая доля измеренного времени была потеряна на выраженные frametime-выбросы. <code>0.00 %</code> означает, что в текущем окне алгоритм не классифицировал ни одного кадра как stutter.</div>
+        </div>
+      </article>
+
+      <article id="stutter-frames-capframex" class="metric-card searchable" data-search="stutter frames count capframex total frames 2.5 moving average msbetweenpresents">
+        <div class="metric-head"><div class="metric-title"><h3>Stutter Frames [CapFrameX]</h3><div class="source">Источник: <code>PresentMon MsBetweenPresents</code>; метод: <code>CapFrameX</code></div></div><span class="group-chip stutter">Analysis</span></div>
+        <div class="metric-body">
+          <p>Число кадров текущего окна, удовлетворивших CapFrameX-условию статтера, и общее число валидных значений <code>MsBetweenPresents</code>.</p>
+          <div class="formula"><div class="formula-label">Display</div><math display="block"><mrow><mi>StutterFrames</mi><mo>=</mo><mfrac><mrow><mo>#</mo><mo>{</mo><mi>i</mi><mo>:</mo><msub><mi>x</mi><mi>i</mi></msub><mo>&gt;</mo><mn>2.5</mn><mo>×</mo><msub><mi>B</mi><mi>i</mi></msub><mo>}</mo></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="note">В оверлее выводится формат <code>stutter frames / total frames</code>, например <code>3 / 239</code>. Классификация вычисляется один раз и совместно используется обеими CapFrameX-метриками.</div>
+          <div class="interpretation">Показывает частоту явных frametime-выбросов. Для оценки тяжести событий рассматривай вместе со <code>Stutter Time % [CapFrameX]</code>.</div>
+        </div>
+      </article>
+
+      <div class="section-heading"><h2>Display / latency</h2><p>Путь Frame Start → Display, Present → Display и фактическая смена кадров</p></div>
+
+      <article id="avg-display-latency" class="metric-card searchable" data-search="average mean displaylatency display latency frame start screen presentmon end to end">
+        <div class="metric-head"><div class="metric-title"><h3>Average DisplayLatency</h3><div class="source">Источник: <code>PresentMon DisplayLatency</code></div></div><span class="group-chip display">Display</span></div>
+        <div class="metric-body">
+          <p>Среднее время от начала обработки application frame до фактического отображения этого кадра на экране. Значение поступает напрямую из <code>PM_METRIC_DISPLAY_LATENCY</code>; отдельные CPU/GPU/present интервалы вручную не складываются.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>DisplayLatency</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="note">Используются конечные неотрицательные значения displayed application frames текущего swap chain. Единицы нормализуются в миллисекунды через PresentMon introspection metadata.</div>
+          <div class="interpretation">Меньше: короче полный измеряемый путь кадра от начала CPU frame до экрана. Это frame-to-display latency, а не физическая mouse-to-photon latency.</div>
+        </div>
+      </article>
+
+      <article id="sd-display-latency" class="metric-card searchable" data-search="sd standard deviation population displaylatency display latency presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>SD DisplayLatency</h3><div class="source">Сырой ряд: <code>PresentMon DisplayLatency</code></div></div><span class="group-chip display">Display</span></div>
+        <div class="metric-body">
+          <p>Population standard deviation покадровых значений <code>DisplayLatency</code> в текущем окне.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>SD</mi><mo>=</mo><msqrt><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mover><mi>x</mi><mo>¯</mo></mover><mo>)</mo></mrow><mn>2</mn></msup></mrow><mi>N</mi></mfrac></msqrt></mrow></math></div>
+          <div class="note"><code>x = DisplayLatency</code>; используется population denominator <code>N</code> и однопроходный алгоритм Welford.</div>
+          <div class="interpretation">Меньше: стабильнее общий уровень frame-to-display latency внутри окна.</div>
+        </div>
+      </article>
+
+      <article id="rmssd-display-latency" class="metric-card searchable" data-search="rmssd displaylatency successive differences display latency presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>RMSSD DisplayLatency</h3><div class="source">Сырой ряд: <code>PresentMon DisplayLatency</code></div></div><span class="group-chip display">Display</span></div>
+        <div class="metric-body">
+          <p>Корень из среднего квадрата разностей между соседними конечными неотрицательными значениями <code>DisplayLatency</code> в порядке захвата.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>RMSSD</mi><mo>=</mo><msqrt><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>K</mi></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>j</mi></msub><mo>−</mo><msub><mi>x</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>)</mo></mrow><mn>2</mn></msup></mrow><mi>K</mi></mfrac></msqrt></mrow></math></div>
+          <div class="note"><code>x = DisplayLatency</code>; <code>K</code>: число валидных соседних пар; <code>0 ms</code> допускается как неотрицательное raw value.</div>
+          <div class="interpretation">Меньше: меньше резких покадровых изменений полного frame-to-display latency.</div>
+        </div>
+      </article>
+
+      <article id="avg-until-displayed" class="metric-card searchable" data-search="average mean msuntildisplayed present display latency presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Average MsUntilDisplayed</h3><div class="source">Источник: <code>PresentMon MsUntilDisplayed</code></div></div><span class="group-chip display">Display</span></div>
+        <div class="metric-body">
+          <p>Среднее время между вызовом <code>Present()</code> и фактическим отображением соответствующего кадра.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>MsUntilDisplayed</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="interpretation">Меньше: короче задержка от Present() до появления кадра на экране.</div>
+        </div>
+      </article>
+
+      <article id="sd-until-displayed" class="metric-card searchable" data-search="sd standard deviation population msuntildisplayed present display latency presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>SD MsUntilDisplayed</h3><div class="source">Сырой ряд: <code>PresentMon MsUntilDisplayed</code></div></div><span class="group-chip display">Display</span></div>
+        <div class="metric-body">
+          <p>Population standard deviation значений <code>MsUntilDisplayed</code> в текущем окне.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>SD</mi><mo>=</mo><msqrt><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mover><mi>x</mi><mo>¯</mo></mover><mo>)</mo></mrow><mn>2</mn></msup></mrow><mi>N</mi></mfrac></msqrt></mrow></math></div>
+          <div class="note"><code>x = MsUntilDisplayed</code>; используется population denominator <code>N</code>.</div>
+          <div class="interpretation">Меньше: стабильнее задержка Present → Display.</div>
+        </div>
+      </article>
+
+      <article id="rmssd-until-displayed" class="metric-card searchable" data-search="rmssd msuntildisplayed successive differences present display latency presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>RMSSD MsUntilDisplayed</h3><div class="source">Сырой ряд: <code>PresentMon MsUntilDisplayed</code></div></div><span class="group-chip display">Display</span></div>
+        <div class="metric-body">
+          <p>Корень из среднего квадрата разностей между соседними конечными неотрицательными значениями <code>MsUntilDisplayed</code> в порядке захвата.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>RMSSD</mi><mo>=</mo><msqrt><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>K</mi></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>j</mi></msub><mo>−</mo><msub><mi>x</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>)</mo></mrow><mn>2</mn></msup></mrow><mi>K</mi></mfrac></msqrt></mrow></math></div>
+          <div class="note"><code>x = MsUntilDisplayed</code>; <code>0 ms</code> является допустимым raw value; <code>K</code>: число валидных последовательных пар.</div>
+          <div class="interpretation">Меньше: стабильнее покадровая задержка Present → Display без резких соседних скачков.</div>
+        </div>
+      </article>
+
+      <article id="avg-between-display-change" class="metric-card searchable" data-search="average mean msbetweendisplaychange displayed time display cadence presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Average MsBetweenDisplayChange</h3><div class="source">Источник: <code>PresentMon MsBetweenDisplayChange</code></div></div><span class="group-chip display">Display</span></div>
+        <div class="metric-body">
+          <p>Среднее время, в течение которого предыдущий кадр оставался на экране до отображения текущего кадра.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>Average</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>MsBetweenDisplayChange</mi><mi>i</mi></msub></mrow><mi>N</mi></mfrac></mrow></math></div>
+          <div class="interpretation">Характеризует фактический displayed frame time, а не только частоту вызовов Present().</div>
+        </div>
+      </article>
+
+      <article id="sd-between-display-change" class="metric-card searchable" data-search="sd standard deviation population msbetweendisplaychange display cadence presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>SD MsBetweenDisplayChange</h3><div class="source">Сырой ряд: <code>PresentMon MsBetweenDisplayChange</code></div></div><span class="group-chip display">Display</span></div>
+        <div class="metric-body">
+          <p>Population standard deviation положительных значений <code>MsBetweenDisplayChange</code> в текущем окне.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>SD</mi><mo>=</mo><msqrt><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mover><mi>x</mi><mo>¯</mo></mover><mo>)</mo></mrow><mn>2</mn></msup></mrow><mi>N</mi></mfrac></msqrt></mrow></math></div>
+          <div class="note"><code>x = MsBetweenDisplayChange</code>; используется population denominator <code>N</code>.</div>
+          <div class="interpretation">Меньше: стабильнее общий разброс фактической длительности показа кадров.</div>
+        </div>
+      </article>
+
+      <article id="rmssd-between-display-change" class="metric-card searchable" data-search="rmssd msbetweendisplaychange successive differences display cadence presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>RMSSD MsBetweenDisplayChange</h3><div class="source">Сырой ряд: <code>PresentMon MsBetweenDisplayChange</code></div></div><span class="group-chip display">Display</span></div>
+        <div class="metric-body">
+          <p>Корень из среднего квадрата разностей между соседними положительными значениями <code>MsBetweenDisplayChange</code> в порядке захвата.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>RMSSD</mi><mo>=</mo><msqrt><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>K</mi></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>j</mi></msub><mo>−</mo><msub><mi>x</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>)</mo></mrow><mn>2</mn></msup></mrow><mi>K</mi></mfrac></msqrt></mrow></math></div>
+          <div class="note"><code>x = MsBetweenDisplayChange</code>; <code>K</code>: число валидных последовательных пар.</div>
+          <div class="interpretation">Меньше: ровнее фактическая длительность показа соседних кадров.</div>
+        </div>
+      </article>
+
+      <article id="displayed-stepwise-relative" class="metric-card searchable" data-search="displayed stepwise relative msbetweendisplaychange relative change percent display cadence presentmon">
+        <div class="metric-head"><div class="metric-title"><h3>Displayed Stepwise-Relative</h3><div class="source">Сырой ряд: <code>PresentMon MsBetweenDisplayChange</code>; формула: <code>project-defined</code></div></div><span class="group-chip display">Display</span></div>
+        <div class="metric-body">
+          <p>Среднее абсолютное относительное изменение между соседними положительными значениями <code>MsBetweenDisplayChange</code> в порядке захвата. Предыдущее displayed-frame interval используется как база сравнения.</p>
+          <div class="formula"><div class="formula-label">Formula</div><math display="block"><mrow><mi>StepwiseRelative</mi><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><mn>1</mn><mi>K</mi></mfrac><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>K</mi></munderover><mfrac><mrow><mo>|</mo><msub><mi>x</mi><mi>j</mi></msub><mo>−</mo><msub><mi>x</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>|</mo></mrow><msub><mi>x</mi><mrow><mi>j</mi><mo>−</mo><mn>1</mn></mrow></msub></mfrac></mrow></math></div>
+          <div class="note"><code>x = MsBetweenDisplayChange</code>; <code>K</code>: число валидных соседних пар. Пары с предыдущим значением <code>&lt;= 0</code> исключаются. Это производная метрика проекта, а не отдельное raw-поле PresentMon.</div>
+          <div class="interpretation">Меньше: соседние displayed-frame intervals изменяются более равномерно относительно собственного уровня. Метрика дополняет абсолютный <code>RMSSD MsBetweenDisplayChange</code> процентной нормализацией.</div>
+        </div>
+      </article>
+      <div id="emptyState" class="empty-state">Ничего не найдено. Попробуй другое название метрики.</div>
+    </div>
+  </main>
+</div>
+<script>
+(() => {
+  function replayEntrance() {
+    const app = document.querySelector('.app');
+    if (app && app.animate) {
+      app.animate([{ opacity: .25 }, { opacity: 1 }], {
+        duration: 150,
+        easing: 'ease-out'
+      });
+    }
+  }
+
+  document.body.classList.add('content-ready');
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage({ action: 'ready' });
+  }
+  const finishLayout = () => scheduleScrollSync();
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(finishLayout, { timeout: 350 });
+  } else {
+    setTimeout(finishLayout, 0);
+  }
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.addEventListener('message', event => {
+      if (event.data && event.data.type === 'windowShown') replayEntrance();
+    });
+  }
+  const search = document.getElementById('search');
+  const items = [...document.querySelectorAll('.searchable')];
+  const empty = document.getElementById('emptyState');
+  const links = [...document.querySelectorAll('.nav-link[data-target]')];
+  const groups = [...document.querySelectorAll('.nav-group')];
+  const sidebar = document.getElementById('sidebar');
+  const toggle = document.getElementById('mobileToggle');
+
+  const sectionById = new Map(items.map(item => [item.id, item]));
+  let activeId = '';
+  let scrollFrame = 0;
+  let navigationLock = null;
+  let navigationTimer = 0;
+  let navigationFrame = 0;
+  let highlightTimer = 0;
+  let highlightedCard = null;
+  let searchIndex = null;
+
+  const normalize = value => value.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').trim();
+  const isVisible = element => element && element.offsetParent !== null;
+  const getTopOffset = () => window.innerWidth <= 980 ? 86 : 20;
+  const getMaxScroll = () => Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  const targetScrollTop = target => Math.min(
+    getMaxScroll(),
+    Math.max(0, window.scrollY + target.getBoundingClientRect().top - getTopOffset())
+  );
+
+  function clearTargetFlash() {
+    window.clearTimeout(highlightTimer);
+    if (highlightedCard) {
+      highlightedCard.classList.remove('target-flash');
+      highlightedCard = null;
+    }
+  }
+
+  function flashTarget(target) {
+    if (!target) return;
+
+    clearTargetFlash();
+    target.classList.remove('target-flash');
+
+    void target.offsetWidth;
+    target.classList.add('target-flash');
+    highlightedCard = target;
+    highlightTimer = window.setTimeout(() => {
+      target.classList.remove('target-flash');
+      if (highlightedCard === target) highlightedCard = null;
+    }, 1050);
+  }
+
+  function cancelNavigation() {
+    window.clearTimeout(navigationTimer);
+    if (navigationFrame) {
+      window.cancelAnimationFrame(navigationFrame);
+      navigationFrame = 0;
+    }
+    navigationLock = null;
+  }
+
+  function finishNavigation() {
+    const targetId = navigationLock;
+    const target = sectionById.get(targetId);
+    if (!target || !isVisible(target)) {
+      cancelNavigation();
+      scheduleScrollSync();
+      return;
+    }
+
+    window.clearTimeout(navigationTimer);
+    if (navigationFrame) window.cancelAnimationFrame(navigationFrame);
+
+    let passes = 0;
+    let stableFrames = 0;
+    const settle = () => {
+      navigationFrame = 0;
+      if (navigationLock !== targetId || !isVisible(target)) return;
+
+      const destination = targetScrollTop(target);
+      const distance = Math.abs(window.scrollY - destination);
+      if (distance > 1) {
+        window.scrollTo({ top: destination, behavior: 'auto' });
+        stableFrames = 0;
+      } else {
+        stableFrames++;
+      }
+
+      passes++;
+      if (stableFrames < 2 && passes < 8) {
+        navigationFrame = window.requestAnimationFrame(settle);
+        return;
+      }
+
+      navigationLock = null;
+      setActive(targetId, false);
+      flashTarget(target);
+      scheduleScrollSync();
+    };
+
+    navigationFrame = window.requestAnimationFrame(settle);
+  }
+
+  function revealActiveLink(link) {
+    if (!link || window.innerWidth <= 980 || !isVisible(link)) return;
+
+    const linkTop = link.offsetTop;
+    const linkBottom = linkTop + link.offsetHeight;
+    const viewportTop = sidebar.scrollTop + 14;
+    const viewportBottom = sidebar.scrollTop + sidebar.clientHeight - 14;
+
+    if (linkTop < viewportTop) {
+      sidebar.scrollTo({ top: Math.max(0, linkTop - 14), behavior: 'smooth' });
+    } else if (linkBottom > viewportBottom) {
+      sidebar.scrollTo({
+        top: Math.max(0, linkBottom - sidebar.clientHeight + 14),
+        behavior: 'smooth'
+      });
+    }
+  }
+
+  function setActive(id, reveal = true) {
+    if (!id || activeId === id) return;
+    activeId = id;
+
+    let activeLink = null;
+    for (const link of links) {
+      const selected = link.dataset.target === id;
+      link.classList.toggle('active', selected);
+      if (selected) {
+        link.setAttribute('aria-current', 'true');
+        activeLink = link;
+      } else {
+        link.removeAttribute('aria-current');
+      }
+    }
+
+    if (reveal) revealActiveLink(activeLink);
+  }
+
+  function currentSectionId() {
+    const visibleItems = items.filter(isVisible);
+    if (!visibleItems.length) return '';
+
+    const anchor = window.scrollY + getTopOffset() + 2;
+    let current = visibleItems[0];
+
+    for (const item of visibleItems) {
+      if (item.offsetTop <= anchor) current = item;
+      else break;
+    }
+
+    if (window.scrollY >= getMaxScroll() - 2) {
+      current = visibleItems[visibleItems.length - 1];
+    }
+
+    return current.id;
+  }
+
+  function syncActiveFromScroll() {
+    scrollFrame = 0;
+
+    if (navigationLock) {
+      setActive(navigationLock, false);
+      return;
+    }
+
+    setActive(currentSectionId());
+  }
+
+  function scheduleScrollSync() {
+    if (!scrollFrame) scrollFrame = window.requestAnimationFrame(syncActiveFromScroll);
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    document.body.classList.remove('nav-open');
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+
+  function filter() {
+    const query = normalize(search.value);
+    let shown = 0;
+    if (query && !searchIndex) {
+      searchIndex = new Map(items.map(item => [
+        item,
+        normalize((item.dataset.search || '') + ' ' + item.textContent)
+      ]));
+    }
+
+    for (const item of items) {
+      const visible = !query || searchIndex.get(item).includes(query);
+      item.style.display = visible ? '' : 'none';
+      const link = links.find(candidate => candidate.dataset.target === item.id);
+      if (link) link.hidden = !visible;
+      if (visible) shown++;
+    }
+
+    for (const group of groups) {
+      const hasVisibleLink = [...group.querySelectorAll('.nav-link[data-target]')].some(link => !link.hidden);
+      group.hidden = !hasVisibleLink;
+    }
+
+    empty.style.display = shown ? 'none' : 'block';
+    cancelNavigation();
+    clearTargetFlash();
+    scheduleScrollSync();
+  }
+
+  search.addEventListener('input', filter);
+  document.addEventListener('keydown', event => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      search.focus();
+      search.select();
+    }
+
+    if (event.key === 'Escape') {
+      search.value = '';
+      filter();
+      search.blur();
+      closeSidebar();
+    }
+  });
+
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.addEventListener('click', () => {
+    const isOpen = sidebar.classList.toggle('open');
+    document.body.classList.toggle('nav-open', isOpen);
+    toggle.setAttribute('aria-expanded', String(isOpen));
+  });
+
+  for (const link of links) {
+    link.addEventListener('click', () => {
+      const target = sectionById.get(link.dataset.target);
+      if (!target || !isVisible(target)) return;
+
+      cancelNavigation();
+      clearTargetFlash();
+      navigationLock = target.id;
+      setActive(target.id, false);
+      navigationTimer = window.setTimeout(finishNavigation, 1600);
+
+      window.scrollTo({ top: targetScrollTop(target), behavior: 'smooth' });
+      closeSidebar();
+    });
+  }
+
+  window.addEventListener('scroll', scheduleScrollSync, { passive: true });
+  window.addEventListener('scrollend', () => {
+    if (navigationLock) finishNavigation();
+    else scheduleScrollSync();
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 980) closeSidebar();
+    cancelNavigation();
+    clearTargetFlash();
+    scheduleScrollSync();
+  });
+
+  const firstVisible = items.find(item => !item.hidden);
+  if (firstVisible) setActive(firstVisible.id, false);
+})();
+</script>
+</body>
+</html>
