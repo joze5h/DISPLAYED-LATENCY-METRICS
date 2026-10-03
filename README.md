@@ -1,10 +1,8 @@
 <div align="center">
 
-# DISPLAYED-LATENCY-METRICS
+<img src="src/Assets/image.png" alt="DISPLAYED-LATENCY-METRICS preview" width="920">
 
 **Real-time frame presentation, display-latency, GPU/CPU timing and stutter analysis for Windows.**
-
-<img src="src/Assets/image.png" alt="DISPLAYED-LATENCY-METRICS preview" width="920">
 
 <br>
 
