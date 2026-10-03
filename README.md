@@ -1,7 +1,3 @@
-# DISPLAYED-LATENCY-METRICS
-
-Windows frame-timing overlay for Counter-Strike 2.
-
 ![Application preview](src/Assets/image.png)
 
 ## Scope
